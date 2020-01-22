@@ -1,14 +1,6 @@
-=== Erply Order management and POS for Woocommerce  ===
-Contributors: erplypos
-Requires at least:5.1
-Tested up to:5.3
-Version:1.1.1
-Stable tag:1.1.1
-License:GPLv2 or later
-License URI:http://www.gnu.org/licenses/gpl-2.0.html
+### Erply Order management and POS for Woocommerce
 
-== Description ==
-= Order management and POS for Woocommerce =
+##### Order management and POS for Woocommerce
 
 With Erply’s comprehensive retail platform, you have a complete set of tools designed to streamline your workflow so you can focus on running your business. Read more about Erply’s features here: https://erply.com.
 Erply’s cloud-based, full-featured point of sale solution has helped Erply become a recognized leader in the retail POS space. Erply serves retailers large and small, and we’re well-known for our:
@@ -25,7 +17,7 @@ Erply’s cloud-based, full-featured point of sale solution has helped Erply bec
 10. Personable customer support
 11. Mobile applications
 
-= Woo to Erply =
+##### Woo to Erply
 
 This plugin is intended for users who have a fresh Erply account with no products on it.
 
@@ -33,7 +25,7 @@ Your WooCommerce store will be the single source of truth for your products. *Ma
 
 Use the plugin at your own risk. *Be sure to back up your database and files* before you run a sync.
 
-= How to =
+##### How to 
 
 To begin using Erply with your WooCommerce store:
 1. Install this plugin
@@ -45,13 +37,11 @@ To begin using Erply with your WooCommerce store:
 
 Whenever you add products, update price or anything else, be sure to run the sync (step 4) again to ensure your changes are synced to Erply.
 
-= Contact us =
+##### Contact us
 
 If you have any questions or feature recommendations, do not hesitate to write to us at woo@erply.com.
 
-Find code on Github: https://github.com/erply/woocommerce-to-erply-pos-product-order-sync-integration
-
-== Frequently Asked Questions ==
+##### Frequently Asked Questions
 
 To begin using Erply with your WooCommerce store:
 1. Install this plugin
@@ -63,24 +53,21 @@ To begin using Erply with your WooCommerce store:
 
 Whenever you add products, update price or anything else, be sure to run the sync (step 4) again to ensure your changes are synced to Erply.
 
-== Installation ==
+##### Installation
 This plugin is easy to install like other plug-ins of Wordpress as you need to just follow the below mentioned steps:
 
 1. Upload woo-erply folder to wp-content/plugins folder.
 2. Activate the plugin from Dashboard / Plugins.
 3. Now Plugin is activated, see How To or FAQ for further instructions.
 
-== Screenshots ==
-1. Preferences view
-2. Manual sync view
 
-== Changelog ==
+##### Changelog 
 
-= 1.1 =
+###### 1.1 
 * Fixed wrong date being sent bug
 * Cache for most used requests
 * Added fallback for orders purchased as guest/without billing email
 
-= 1.0 =
+###### 1.0 
 * Initial version.
 
