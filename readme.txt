@@ -1,9 +1,9 @@
 === Erply Order management and POS for Woocommerce  ===
 Contributors: erplypos
 Requires at least:5.1
-Tested up to:5.2
-Version:1.0.0
-Stable tag:1.0.0
+Tested up to:5.3
+Version:1.1.0
+Stable tag:1.1.0
 License:GPLv2 or later
 License URI:http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -49,6 +49,7 @@ Whenever you add products, update price or anything else, be sure to run the syn
 
 If you have any questions or feature recommendations, do not hesitate to write to us at woo@erply.com.
 
+Find code on Github:
 
 == Frequently Asked Questions ==
 
@@ -72,4 +73,14 @@ This plugin is easy to install like other plug-ins of Wordpress as you need to j
 == Screenshots ==
 1. Preferences view
 2. Manual sync view
+
+== Changelog ==
+
+= 1.1 =
+* Fixed wrong date being sent bug
+* Cache for most used requests
+* Added fallback for orders purchased as guest/without billing email
+
+= 1.0 =
+* Initial version.
 

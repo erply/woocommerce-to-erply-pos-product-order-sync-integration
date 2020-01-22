@@ -1337,13 +1337,6 @@ class Woo_Erply_Flow extends Woo_Erply_Main
 
 			$synced = $this->sync_single_order($order);
 
-
-			// Woo_Erply_Main::write_to_log_file( $synced);
-			/*
-            if ( empty( $synced ) || $synced == 429 ) {
-                break;
-            } */
-
 		}
 
 		if (empty($synced)) {
@@ -1438,7 +1431,7 @@ class Woo_Erply_Flow extends Woo_Erply_Main
 		$parameters = [
 			"type" => get_option("synchronize_orders_as"),
 			"warehouseID" => get_option("woo_erply_sync_warehouse"),
-			"date" => $odc->date("Y-d-m"),
+			"date" => $odc->date("Y-m-d"),
 			"time" => $odc->date("H:i:s"),
 			"confirmInvoice" => 1,
 			"allowDuplicateNumbers" => 0,
@@ -1451,25 +1444,26 @@ class Woo_Erply_Flow extends Woo_Erply_Main
 			"currencyCode" => $currency,
 		];
 
-		$customer_id = $this->save_customer($order);
+        $email = $order->get_billing_email();
+        if ($email !== "") {
+            $customer_id = $this->save_customer($order);
+            if (empty($customer_id)) {
+                $this->settings->set_status_sync_failed();
+                Woo_Erply_Main::write_to_log_file("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
+                return false;
+            }
+            $addresses = $this->sync_addresses($order, $customer_id);
+            if (empty($addresses)) {
+                $this->settings->set_status_sync_failed();
+                return false;
+            }
+            $parameters = array_merge($parameters, $addresses);
+        } else {
+            Woo_Erply_Main::write_to_log_file("Warning! Order made as guest/without customer email. Saving order without associated customer and address.");
+        }
 
-		if (empty($customer_id)) {
-			$this->settings->set_status_sync_failed();
 
-			Woo_Erply_Main::write_to_log_file("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
 
-			return false;
-		}
-
-		$addresses = $this->sync_addresses($order, $customer_id);
-
-		if (empty($addresses)) {
-			$this->settings->set_status_sync_failed();
-
-			return false;
-		}
-
-		$parameters = array_merge($parameters, $addresses);
 		$invoice_lines = [];
 
 		$order_items = $order->get_items();
@@ -1851,7 +1845,13 @@ class Woo_Erply_Flow extends Woo_Erply_Main
 			return false;
 		}
 
-		return $customer;
+        if ($customer === $order->get_billing_email() && $customer !== "") {
+            return $customer;
+        } else {
+            return false;
+        }
+
+
 	}
 
 	/**

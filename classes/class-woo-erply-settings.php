@@ -13,6 +13,8 @@ class Woo_Erply_Settings {
     public $tabs;
     public $cred_fields;
     public $erply_countries = [];
+    // Default cache time in SECONDS for addressTypes, vatRates, configParameters from Erply
+    public $cache_time = 3600;
 
     public function __construct( $args ) {
         if ( !empty( $args["textdomain"] ) ) $this->textdomain = $args["textdomain"];
@@ -57,6 +59,8 @@ class Woo_Erply_Settings {
         // Callback for refresh erply lists actions
         add_action( 'wp_ajax_refreshWarehouses', array( $this, "refresh_warehouses" ) );
         add_action( 'wp_ajax_refreshProductGroups', array( $this, "refresh_product_groups" ) );
+        // Purge cache of frequently used requests
+        add_action( 'wp_ajax_purgeErplyCache', array( $this, "purge_cache" ) );
         // Callback for ajax request to get form for updating erply credentials
         add_action( 'wp_ajax_load_creds_form', array( $this, "load_creds_form_callback" ) );
         // Add columns to woo orders list
@@ -421,6 +425,10 @@ class Woo_Erply_Settings {
                         var $target   = jQuery(tar_id);
                         var er_option = '<option value="">' + er_text + '</option>';
 
+                        if (res === "Cache successfully purged"){
+                            window.location.reload();
+                        }
+
                         if ( res.length > 0 ) {
                             var jsn = JSON.parse(res);
                         }
@@ -444,6 +452,10 @@ class Woo_Erply_Settings {
                         }
                     }
                 });
+            }
+
+            function purgeCache() {
+                refreshErplyLists( "purgeErplyCache", "woo_erply_purge_cache", "" );
             }
 
             function refreshWarehouses(){
@@ -745,6 +757,23 @@ class Woo_Erply_Settings {
 			];
 			$html .= $this->render_admin_settings_field( $field );
 		}
+
+        $field = [
+            "key"      => "woo_erply_purge_cache",
+            "label"    => __( "Options cache" ),
+            "type"     => "hidden",
+            "options"  => json_decode( $warehouses ),
+            "button"   => [
+                "text"     => "Purge cache",
+                "callback" => "purgeCache();",
+                "class"    => "button button-primary",
+            ],
+            "tooltip" => [
+                "text" => "Empty cache which holds VAT rates, address types and config parameters coming from Erply. By default, cache lasts for 1 hour.",
+            ] ,
+        ];
+        $html .= $this->render_admin_settings_field( $field );
+
 
         return $html;
     }
@@ -1253,8 +1282,6 @@ protected function get_session_key($username = false, $password = false)	{
 		$response     = false;
         $notice_class = "error";
 
-
-
         // Success is false, if general curl error occurs OR API rate limit gets busted
         if ( $result["success"] ) {
             	$message = "Failure. ";
@@ -1264,16 +1291,21 @@ protected function get_session_key($username = false, $password = false)	{
                     $response     = true;
                     $notice_class = "notice";
                 } else {
-					if ( !empty( $result["response"]->status->errorCode ) == 1002 ) {
-						Woo_Erply_Main::write_to_log_file( "Hourly API rate limit exceeded." );
-						Woo_Erply_Main::write_to_log_file( "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" );
-						return 1002;
-					}
+                    if (!empty( $result["response"]->status->errorCode)) {
+                        if ( $result["response"]->status->errorCode === 1002 ) {
+                            Woo_Erply_Main::write_to_log_file( "Hourly API rate limit exceeded." );
+                            Woo_Erply_Main::write_to_log_file( "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" );
+                            return 1002;
+                        }  else {
+                            $message = "Error occurred. Error code: " . $result["response"]->status->errorCode;
+                            $notice_class = "error";
+                        }
+                    }
 
                     if ( !empty( $result["response"]->status->errorMessage ) ) {
                         $message .= " " . $result["response"]->status->errorMessage;
                     } else {
-                        $message .= "\n" . Woo_Erply_Main::write_to_log_file( "Response: " . wp_json_encode( $result["response"] ) );
+                        $message .= "\n" . "Response: " . wp_json_encode( $result["response"] );
                     }
                 }
 
@@ -1282,10 +1314,10 @@ protected function get_session_key($username = false, $password = false)	{
 
             if ( $notice_class == "error" ) {
                 $message .= " Check logs for details.";
-
                 add_action('erply_notices', function () use ($message, $notice_class) {
                     echo '<div class="updated '.$notice_class.' is-dismissible"><p>' . $message . '</p></div>';
                 });
+                return false;
             } else {
                 return $result;
             }
@@ -1533,6 +1565,19 @@ protected function get_session_key($username = false, $password = false)	{
         wp_die();
     }
 
+
+    /**
+     * Callback for ajax call performed on user's purge cache request
+     *
+     */
+    public function purge_cache(){
+        delete_option("erply_address_types");
+        delete_option("erply_conf_parameters");
+        delete_option("erply_vat_rates");
+        echo "Cache successfully purged";
+        wp_die();
+    }
+
     /**
      * Get erply delivery types
      *
@@ -1569,6 +1614,7 @@ protected function get_session_key($username = false, $password = false)	{
      * @return array
      */
     public function get_erply_payment_types() {
+
         $paymentMethods = [];
         $result = $this->send_request_to_erply( ["request" => "getInvoicePaymentTypes", "content" => [],] );
 
@@ -1680,6 +1726,7 @@ protected function get_session_key($username = false, $password = false)	{
         return 0;
     }
 
+
     /**
      * Set sync status to failed, with date
      */
@@ -1703,6 +1750,21 @@ protected function get_session_key($username = false, $password = false)	{
             $parameters["searchAttributeValue"] = $rate_id;
         }
 
+        $cached_vat_rates = get_option( 'erply_vat_rates' );
+        if ($cached_vat_rates) {
+            $cached_vat_rates = json_decode($cached_vat_rates);
+            $ts = time();
+            if (($ts - $cached_vat_rates->ts) < $this->cache_time ) {
+                if ( !empty( $rate_id ) ) {
+                    if (isset($cached_vat_rates->rates->$rate_id)) {
+                        return $cached_vat_rates->rates->$rate_id;
+                    }
+                } else {
+                    return $cached_vat_rates->rates;
+                }
+            }
+        }
+
         $body = [
             "request" => "getVatRates",
             "content" => $parameters,
@@ -1716,11 +1778,13 @@ protected function get_session_key($username = false, $password = false)	{
             !empty( $result["response"]->records )
         ) {
             $records = $result["response"]->records;
+            $return_single_rate = false;
 
             if ( !empty( $rate_id ) ) {
                 foreach ( $records as $record ) {
                     if ( $record->id == $rate_id) {
-                        return $record->rate;
+                        $return_single_rate = true;
+                        $rate_to_return = $record->rate;
                     }
                 }
             }
@@ -1730,8 +1794,18 @@ protected function get_session_key($username = false, $password = false)	{
                     $rates[$record->id] = $record->name;
                 }
             }
+            $cached_vat_rates = [];
+            $cached_vat_rates['ts'] = time();
+            $cached_vat_rates['rates'] = $rates;
 
-            return $rates;
+            update_option(  'erply_vat_rates', json_encode($cached_vat_rates),  'yes' );
+
+            if ($return_single_rate) {
+                return $rate_to_return;
+            } else {
+                return $rates;
+            }
+
         }
 
         return false;
@@ -1745,6 +1819,15 @@ protected function get_session_key($username = false, $password = false)	{
     public function get_erply_address_types(){
         $parameters    = [];
         $address_types = [];
+
+        $cached_address_types = get_option( 'erply_address_types' );
+        if ($cached_address_types) {
+            $cached_address_types = json_decode($cached_address_types);
+            $ts = time();
+            if (($ts - $cached_address_types->ts) < $this->cache_time ) {
+                return $cached_address_types->types;
+            }
+        }
 
         $body = [
             "request" => "getAddressTypes",
@@ -1766,6 +1849,12 @@ protected function get_session_key($username = false, $password = false)	{
                 }
             }
 
+            $cached_address_types = [];
+            $cached_address_types['ts'] = time();
+            $cached_address_types['types'] = $address_types;
+
+            update_option(  'erply_address_types', json_encode($cached_address_types),  'yes' );
+
             return $address_types;
         }
 
@@ -1778,6 +1867,16 @@ protected function get_session_key($username = false, $password = false)	{
      * @return mixed
      */
     public function get_erply_conf_parameters(){
+
+        $cached_conf_params = get_option( 'erply_conf_parameters' );
+        if ($cached_conf_params) {
+            $cached_conf_params = json_decode($cached_conf_params);
+            $ts = time();
+            if (($ts - $cached_conf_params->ts) < $this->cache_time ) {
+                return $cached_conf_params->params;
+            }
+        }
+
         $json_body = [
             "request" => "getConfParameters",
             "content" => [],
@@ -1790,7 +1889,15 @@ protected function get_session_key($username = false, $password = false)	{
             !empty( $result["response"]->status ) &&
             !empty( $result["response"]->records )
         ) {
-            return $result["response"]->records[0];
+            $conf_params = $result["response"]->records[0];
+
+            $cached_conf_params = [];
+            $cached_conf_params['ts'] = time();
+            $cached_conf_params['params'] = $conf_params;
+
+            update_option(  'erply_conf_parameters', json_encode($cached_conf_params),  'yes' );
+
+            return $conf_params;
         } else {
         	return false;
 		}
